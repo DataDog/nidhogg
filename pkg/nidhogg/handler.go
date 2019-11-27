@@ -116,7 +116,7 @@ func (h *Handler) calculateTaints(instance *corev1.Node, daemonsets []Daemonset)
 		}
 	}
 	for _, daemonset := range daemonsets {
-		taint := fmt.Sprintf("%s/%s", daemonset.Namespace, daemonset.Name)
+		taint := fmt.Sprintf("%s/%s.%s", taintKey, daemonset.Namespace, daemonset.Name)
 		// Get Pod for node
 		pod, err := h.getDaemonsetPod(instance.Name, daemonset)
 		if err != nil {
@@ -175,19 +175,15 @@ func podReady(pod *corev1.Pod) bool {
 	return true
 }
 
-func addTaint(taints []corev1.Taint, taintValue string) []corev1.Taint {
-	return append(taints, corev1.Taint{
-		Key:    taintKey,
-		Value:  taintValue,
-		Effect: corev1.TaintEffectNoSchedule,
-	})
+func addTaint(taints []corev1.Taint, taintName string) []corev1.Taint {
+	return append(taints, corev1.Taint{Key: taintName, Effect: corev1.TaintEffectNoSchedule})
 }
 
-func removeTaint(taints []corev1.Taint, taintValue string) []corev1.Taint {
+func removeTaint(taints []corev1.Taint, taintName string) []corev1.Taint {
 	newTaints := []corev1.Taint{}
 
 	for _, taint := range taints {
-		if taint.Key == taintKey && taint.Value == taintValue {
+		if taint.Key == taintName {
 			continue
 		}
 		newTaints = append(newTaints, taint)
