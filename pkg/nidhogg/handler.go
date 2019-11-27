@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -62,9 +63,21 @@ func (h *Handler) HandleNode(instance *corev1.Node) (reconcile.Result, error) {
 		return reconcile.Result{}, fmt.Errorf("error caluclating taints for node: %v", err)
 	}
 
+	taintLess := true
+	for _, taint := range copy.Spec.Taints {
+		if strings.HasPrefix(taint.Key, taintKey) {
+			taintLess = false
+		}
+	}
+	firstTimeReady, ok := copy.Annotations[taintKey+"/first-time-ready"]
+	if !ok && taintLess {
+		firstTimeReady = time.Now().Format("2006-01-02T15:04:05Z")
+		copy.Annotations[taintKey+"/first-time-ready"] = firstTimeReady
+	}
+
 	if !reflect.DeepEqual(copy, instance) {
 		instance = copy
-		log.Info("Updating Node taints", "instance", instance.Name, "taints added", taintChanges.taintsAdded, "taints removed", taintChanges.taintsRemoved)
+		log.Info("Updating Node taints", "instance", instance.Name, "taints added", taintChanges.taintsAdded, "taints removed", taintChanges.taintsRemoved, "taintLess", taintLess, "firstTimeReady", firstTimeReady)
 		err := h.Update(context.TODO(), instance)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -73,7 +86,7 @@ func (h *Handler) HandleNode(instance *corev1.Node) (reconcile.Result, error) {
 		// this is a hack to make the event work on a non-namespaced object
 		copy.UID = types.UID(copy.Name)
 
-		h.recorder.Eventf(copy, corev1.EventTypeNormal, "TaintsChanged", "Taints added: %s, Taints removed: %s", taintChanges.taintsAdded, taintChanges.taintsRemoved)
+		h.recorder.Eventf(copy, corev1.EventTypeNormal, "TaintsChanged", "Taints added: %s, Taints removed: %s, TaintLess: %v, FirstTimeReady: %q", taintChanges.taintsAdded, taintChanges.taintsRemoved, taintLess, firstTimeReady)
 	}
 
 	return reconcile.Result{}, nil
