@@ -30,6 +30,9 @@ JSON:
   "nodeSelector": {
     "node-role.kubernetes.io/node": ""
   },
+  "nodeRejecter": {
+    "node-role.kubernetes.io/master": ""
+  },
   "daemonsets": [
     {
       "name": "kiam",
